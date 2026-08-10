@@ -17,8 +17,8 @@ status = "verified on gfx1151: full pytest suite 114 passed / 1 skipped / 87 fai
 [nerfacc]
 repo = "https://github.com/bjoernellens1/nerfacc-rocm"
 branch = "release/0.5.3"
-commit = "b3405d93b8a3f85453563dfbb5f8bd686dbf0e40"
-status = "re-forked from AMD-Ecosystem/nerfacc (working ROCm port); IS_ROCM/arch-hardcoding fixes not yet applied"
+commit = "cba5a63bb7cc3486ea31af3505aa1ca2a8c44d9d"
+status = "verified on gfx1151: own pytest suite 23 passed / 0 failed (21/23 real exercised coverage, 2 test_vdb.py tests short-circuit on missing optional fvdb dep, unrelated to ROCm); Instant-NGP trained 5000 iterations on bonsai (mip-nerf360) with no NaN/Inf, train loss 0.114->0.0044 (26x), train PSNR 9.6->23.4dB, eval PSNR 15.2->20.6dB (peak 22.8), and final-checkpoint occupancy grid 29.07% occupied confirming OccGridEstimator actively prunes empty space; builds as a hard docker build-time dependency (docker/Dockerfile.rocm)"
 
 [tiny_rocm_nn]
 repo = "https://github.com/bjoernellens1/tiny-rocm-nn"

@@ -32,10 +32,10 @@ RUN git clone --branch release/1.5.3b2 https://github.com/bjoernellens1/gsplat.g
     cd gsplat && git submodule update --init --recursive && \
     CUDA_HOME=/opt/rocm python -m pip install --no-cache-dir --no-build-isolation .
 
-# --- nerfacc: fresh fork, unported — install in CPU/reference mode only for now ---
-RUN git clone https://github.com/bjoernellens1/nerfacc-rocm.git nerfacc && \
-    python -m pip install --no-cache-dir --no-build-isolation --no-deps ./nerfacc || \
-    echo "nerfacc-rocm: not yet ROCm-buildable, skipping (see ROCM.md)"
+# --- nerfacc: ROCm fork verified on gfx1151 (own test suite + Instant-NGP training run) ---
+RUN git clone --branch release/0.5.3 https://github.com/bjoernellens1/nerfacc-rocm.git nerfacc && \
+    cd nerfacc && \
+    CUDA_HOME=/opt/rocm python -m pip install --no-cache-dir --no-build-isolation --no-deps .
 
 # --- tiny-rocm-nn: partially ported, RDNA/gfx1151 unverified — best-effort build ---
 RUN git clone --recursive https://github.com/bjoernellens1/tiny-rocm-nn.git && \

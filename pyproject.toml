@@ -31,7 +31,6 @@ dependencies = [
     "mediapy>=1.1.0",
     "msgpack>=1.0.4",
     "msgpack_numpy>=0.4.8",
-    "nerfacc==0.5.2",
     "open3d>=0.16.0",
     "opencv-python-headless==4.10.0.84",
     "Pillow>=10.3.0",
@@ -75,6 +74,20 @@ dependencies = [
     # afterwards and overwrite the ROCm build's files in site-packages/gsplat/,
     # defeating the ROCm install entirely. On CUDA, install gsplat separately
     # per nerfstudio's upstream instructions (`pip install gsplat==1.4.0`).
+    #
+    # nerfacc is intentionally NOT pinned here either, for the same reason.
+    # docker/Dockerfile.rocm installs the verified bjoernellens1/nerfacc-rocm
+    # fork (release/0.5.3, pinned commit in dependencies/rocm-lock.toml) as a
+    # hard prerequisite before this package is installed. That fork's
+    # distribution name is "amd_nerfacc" (not "nerfacc") even though it still
+    # provides the `nerfacc` import namespace — so pip's resolver can't see it
+    # as satisfying a `nerfacc==X` pin. Keeping a `nerfacc==0.5.2` pin here
+    # reproduced the exact gsplat bug: `pip install -e .` silently fetched the
+    # stock CUDA-only PyPI `nerfacc` package afterwards and overwrote the ROCm
+    # build's files in site-packages/nerfacc/, defeating the ROCm install
+    # entirely (confirmed via a real build + `import nerfacc` version check).
+    # On CUDA, install nerfacc separately per nerfstudio's upstream
+    # instructions (`pip install nerfacc==0.5.2`).
     "pytorch-msssim",
     "pathos",
     "packaging",
