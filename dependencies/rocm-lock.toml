@@ -12,7 +12,7 @@ docker_base = "ghcr.io/bjoernellens1/splatograph:rocm-python-base-snapshot"
 repo = "https://github.com/bjoernellens1/gsplat"
 branch = "release/1.5.3b2"
 commit = "4515618291906856d8471c95b65c060d0cec4e43"
-status = "verified on gfx1151: full pytest suite 114 passed, 1 skipped, 0 failed (87 unrelated pre-existing failures all attributable to nerfacc's lack of ROCm support, see gsplat#5); Splatfacto trained 7000 iterations on bonsai (mip-nerf360) with no NaN/Inf and confirmed densification; builds as a hard docker build-time dependency (docker/Dockerfile.rocm)"
+status = "verified on gfx1151: full pytest suite 114 passed / 1 skipped / 87 failed — all 87 attributable to the test-only nerfacc dependency having no ROCm support, zero gsplat kernel failures (see gsplat#5); Splatfacto trained 7000 iterations on bonsai (mip-nerf360) with no NaN/Inf and confirmed densification; builds as a hard docker build-time dependency (docker/Dockerfile.rocm)"
 
 [nerfacc]
 repo = "https://github.com/bjoernellens1/nerfacc-rocm"

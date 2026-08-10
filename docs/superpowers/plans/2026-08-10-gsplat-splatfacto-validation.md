@@ -183,6 +183,34 @@ gh issue close 3 --repo bjoernellens1/gsplat --comment "Fixed in $(git rev-parse
 
 ### Task 2b: Port the wave32 fix onto release/1.5.3b2 (inserted mid-execution)
 
+> **CORRECTION — what was actually applied (post-execution note).** The rest of
+> this section describes the plan *as written before execution*; the source it
+> names was rejected during execution. Read this note first.
+>
+> - **Rejected source:** `origin/fix/gfx1151-wave32-review-cleanup` (the 4-file
+>   diff described below) — **it does not compile**: it deletes the definition
+>   of `dpp_warpMax` while leaving its call site intact.
+> - **Actual source:** [AMD-Ecosystem/gsplat PR #17](https://github.com/AMD-Ecosystem/gsplat/pull/17),
+>   commit `20f38d5`, authored by Warren Ross — ported onto
+>   `bjoernellens1/gsplat` `release/1.5.3b2` as commit `9b6d7db`
+>   ("use a single WARP_SIZE constant (arch-gated) instead of hardcoded wave64
+>   in reduction/tiling kernels", fixes gsplat#4).
+> - **Actual scope: 9 files**, not 4 — the port also covers the projection
+>   kernels and adds a new shared header:
+>   1. `gsplat/cuda/include/Common.cuh` *(new file — the arch-gated
+>      `WARP_SIZE` constant)*
+>   2. `gsplat/cuda/csrc/Projection2DGSFused.cu`
+>   3. `gsplat/cuda/csrc/Projection2DGSPacked.cu`
+>   4. `gsplat/cuda/csrc/ProjectionEWA3DGSFused.cu`
+>   5. `gsplat/cuda/csrc/ProjectionEWA3DGSPacked.cu`
+>   6. `gsplat/cuda/csrc/RasterizeToPixels2DGSBwd.cu` *(planned)*
+>   7. `gsplat/cuda/csrc/RasterizeToPixels3DGSBwd.cu` *(planned)*
+>   8. `gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSBwd.cu` *(planned)*
+>   9. `gsplat/cuda/include/Utils.cuh` *(planned)*
+>
+> The "Do NOT modify `setup.py` / `_backend.py`" constraint below still held —
+> Task 2's glm fix (`42d17c9`) was preserved untouched.
+
 **Why this task exists:** Task 2 fixed gsplat#3 (glm include path) but, in
 verifying it, discovered gsplat still fails to build at all on gfx1151: a
 new bug, filed as

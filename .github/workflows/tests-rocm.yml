@@ -28,8 +28,9 @@ jobs:
             --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host \
             -v /data/mipnerf360:/data/mipnerf360:ro \
             -v "$PWD/tests/rocm/logs:/workspace/nerfstudio-rocm/tests/rocm/logs" \
-            nerfstudio-rocm:ci bash -c "set -o pipefail; ns-train splatfacto --data /data/mipnerf360/bonsai --max-num-iterations 7000 --viewer.quit-on-train-completion True --vis tensorboard colmap --images-path images --colmap-path sparse/0 --downscale-factor 4 --downscale-rounding-mode round | tee /workspace/nerfstudio-rocm/tests/rocm/logs/splatfacto.log"
+            nerfstudio-rocm:ci bash -c "set -o pipefail; ns-train splatfacto --data /data/mipnerf360/bonsai --max-num-iterations 7000 --viewer.quit-on-train-completion True --vis tensorboard colmap --images-path images --colmap-path sparse/0 --downscale-factor 4 --downscale-rounding-mode round 2>&1 | tee /workspace/nerfstudio-rocm/tests/rocm/logs/splatfacto.log"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: rocm-smoke-logs
           path: tests/rocm/logs/

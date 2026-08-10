@@ -11,7 +11,12 @@ export PYTORCH_ROCM_ARCH CUDA_HOME=/opt/rocm
 mkdir -p "${WORKDIR}"
 cd "${WORKDIR}"
 
-echo "==> gsplat (verified ROCm fork — run this script with real GPU devices attached; see gsplat#2/#3)"
+# gsplat#2 (PYTORCH_ROCM_ARCH ignored) and gsplat#3 (glm include path) are both
+# fixed, so gsplat now builds as a hard dependency in docker/Dockerfile.rocm with
+# no GPU device access needed. This script remains an alternative manual install
+# path (e.g. inside an already-running container) and no longer requires the old
+# "attach real GPU devices" workaround.
+echo "==> gsplat (verified ROCm fork — builds from PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}, no GPU device access required)"
 rm -rf gsplat
 git clone --branch release/1.5.3b2 https://github.com/bjoernellens1/gsplat.git
 cd gsplat

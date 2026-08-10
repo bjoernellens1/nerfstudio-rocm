@@ -24,11 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /workspace
 
 # --- gsplat: verified ROCm fork, pinned commit in dependencies/rocm-lock.toml ---
-# Builds cleanly with real GPU devices attached (docker build has none, which
-# is why this must run at image-build time on a host that already has ROCm
-# device access via BuildKit/podman's device passthrough, or be rebuilt from
-# a running container — see scripts/install-rocm-deps.sh for the equivalent
-# runtime install path used during development/debugging).
+# Hard dependency — builds under plain `docker build` with no GPU device access
+# required, because setup.py reads PYTORCH_ROCM_ARCH (gsplat#2, fixed) rather
+# than shelling out to rocminfo. See scripts/install-rocm-deps.sh for the
+# equivalent runtime/manual install path used during development/debugging.
 RUN git clone --branch release/1.5.3b2 https://github.com/bjoernellens1/gsplat.git && \
     cd gsplat && git submodule update --init --recursive && \
     CUDA_HOME=/opt/rocm python -m pip install --no-cache-dir --no-build-isolation .
