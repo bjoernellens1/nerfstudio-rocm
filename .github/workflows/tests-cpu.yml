@@ -16,4 +16,8 @@ jobs:
       - name: Install rocm/ package (CPU-only, no GPU deps)
         run: python -m pip install --upgrade pip && python -m pip install -e . pytest
       - name: rocm backend/capabilities tests
-        run: pytest tests/rocm/test_backend.py -v
+        # -o addopts="" overrides nerfstudio's own pyproject.toml addopts
+        # (-n=4 needs pytest-xdist, --jaxtyping-packages needs jaxtyping's
+        # pytest plugin — neither is installed here, this job is deliberately
+        # minimal and doesn't need nerfstudio's full test-suite flags).
+        run: pytest -o addopts="" tests/rocm/test_backend.py -v
