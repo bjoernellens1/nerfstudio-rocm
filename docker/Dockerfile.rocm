@@ -19,16 +19,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     ninja-build \
-    libglm-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
 # --- gsplat: verified ROCm fork, pinned commit in dependencies/rocm-lock.toml ---
+# NOTE: best-effort at *build* time. release/1.5.3b2's setup.py shells out to
+# `rocminfo` to pick the HIP target arch and ignores PYTORCH_ROCM_ARCH — but
+# `docker build` has no GPU device access, so rocminfo fails and it silently
+# falls back to gfx942 regardless of this image's target. It also currently
+# fails to compile at all (glm submodule isn't reaching hipcc's include path,
+# so it resolves system libglm's non-HIP-aware operators instead) — both
+# filed as issues on bjoernellens1/gsplat. Until fixed, install gsplat at
+# `docker run` time instead, with real GPU devices attached, via:
+#   scripts/install-rocm-deps.sh
 RUN git clone --branch release/1.5.3b2 https://github.com/bjoernellens1/gsplat.git && \
     cd gsplat && git submodule update --init --recursive && \
-    python3 docker/patch_glm_platform_h.py && \
-    CUDA_HOME=/opt/rocm python -m pip install --no-cache-dir --no-build-isolation .
+    (CUDA_HOME=/opt/rocm python -m pip install --no-cache-dir --no-build-isolation . || \
+     echo "gsplat: build-time install failed (expected, see comment above) — run scripts/install-rocm-deps.sh at container runtime instead")
 
 # --- nerfacc: fresh fork, unported — install in CPU/reference mode only for now ---
 RUN git clone https://github.com/bjoernellens1/nerfacc-rocm.git nerfacc && \

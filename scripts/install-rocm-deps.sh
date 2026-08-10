@@ -11,12 +11,11 @@ export PYTORCH_ROCM_ARCH CUDA_HOME=/opt/rocm
 mkdir -p "${WORKDIR}"
 cd "${WORKDIR}"
 
-echo "==> gsplat (verified ROCm fork)"
+echo "==> gsplat (verified ROCm fork — run this script with real GPU devices attached; see gsplat#2/#3)"
 rm -rf gsplat
 git clone --branch release/1.5.3b2 https://github.com/bjoernellens1/gsplat.git
 cd gsplat
 git submodule update --init --recursive
-python3 docker/patch_glm_platform_h.py
 python -m pip install --no-build-isolation .
 cd ..
 

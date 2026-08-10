@@ -28,13 +28,17 @@ own upstream so fixes can be merged back there:
 | Repo | Fork of | Status |
 |---|---|---|
 | [nerfstudio-rocm](https://github.com/bjoernellens1/nerfstudio-rocm) | [nerfstudio-project/nerfstudio](https://github.com/nerfstudio-project/nerfstudio) | this repo |
-| [gsplat](https://github.com/bjoernellens1/gsplat) | [AMD-Ecosystem/gsplat](https://github.com/AMD-Ecosystem/gsplat) (→ [nerfstudio-project/gsplat](https://github.com/nerfstudio-project/gsplat)) | **verified**: gfx1151 + gfx1100 forward/backward tested, `release/1.5.3b2` |
+| [gsplat](https://github.com/bjoernellens1/gsplat) | [AMD-Ecosystem/gsplat](https://github.com/AMD-Ecosystem/gsplat) (→ [nerfstudio-project/gsplat](https://github.com/nerfstudio-project/gsplat)) | previously verified on gfx1151/gfx1100; `release/1.5.3b2`'s build currently fails under `docker build` — see [#2](https://github.com/bjoernellens1/gsplat/issues/2), [#3](https://github.com/bjoernellens1/gsplat/issues/3) |
 | [nerfacc-rocm](https://github.com/bjoernellens1/nerfacc-rocm) | [nerfstudio-project/nerfacc](https://github.com/nerfstudio-project/nerfacc) | **unported**, fresh fork; `AMD-Ecosystem/nerfacc` exists as a reference (hardcodes `gfx942`, not merged wholesale) |
 | [tiny-rocm-nn](https://github.com/bjoernellens1/tiny-rocm-nn) | [ZJLi2013/tiny-rocm-nn](https://github.com/ZJLi2013/tiny-rocm-nn) | **partially ported** — see below |
 | [colmap](https://github.com/bjoernellens1/colmap) | [colmap/colmap](https://github.com/colmap/colmap) | `patch_match_stereo` HIP support merged; feature extraction/matching CPU-only on AMD (see §COLMAP) |
 
 Pinned commits for all of the above: [`dependencies/rocm-lock.toml`](dependencies/rocm-lock.toml).
 Run `python -m rocm.diagnostics` (`ns-rocm-info`) inside the container to print the live stack + pins.
+
+## Known build issues
+
+- **gsplat `release/1.5.3b2` doesn't build under `docker build`**: its `get_rocm_arch()` shells out to `rocminfo`, which has no GPU device access at image build time and silently falls back to `gfx942` regardless of `PYTORCH_ROCM_ARCH` ([gsplat#2](https://github.com/bjoernellens1/gsplat/issues/2)). Separately, the vendored glm submodule isn't reaching hipcc's include path, so a system/generic glm gets picked up instead and fails to compile against HIP kernels ([gsplat#3](https://github.com/bjoernellens1/gsplat/issues/3)). `docker/Dockerfile.rocm` treats the build-time gsplat install as best-effort for this reason; the documented working path is `scripts/install-rocm-deps.sh` run inside a *running* container with real GPU devices attached (`--device=/dev/kfd --device=/dev/dri`).
 
 ## tiny-rocm-nn: what's actually there
 
