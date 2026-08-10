@@ -18,7 +18,7 @@ run() {
     local name="$1"; shift
     echo "==> ${name}"
     ns-train "$@" --data "${DATA_DIR}" --max-num-iterations 20 \
-        --viewer.quit-on-train-completion True \
+        --viewer.quit-on-train-completion True --vis tensorboard \
         2>&1 | tee "${LOG_DIR}/${name}.log"
 }
 
