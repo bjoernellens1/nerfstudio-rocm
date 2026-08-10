@@ -16,9 +16,9 @@ status = "verified on gfx1151: full pytest suite 114 passed / 1 skipped / 87 fai
 
 [nerfacc]
 repo = "https://github.com/bjoernellens1/nerfacc-rocm"
-branch = "master"
-commit = "57ccfa14feb94975836ea6913149a86737220f2b"
-status = "unported — fresh fork of nerfstudio-project/nerfacc, CUDA-only until ported"
+branch = "release/0.5.3"
+commit = "b3405d93b8a3f85453563dfbb5f8bd686dbf0e40"
+status = "re-forked from AMD-Ecosystem/nerfacc (working ROCm port); IS_ROCM/arch-hardcoding fixes not yet applied"
 
 [tiny_rocm_nn]
 repo = "https://github.com/bjoernellens1/tiny-rocm-nn"
