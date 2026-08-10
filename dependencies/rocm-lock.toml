@@ -1,0 +1,33 @@
+# Pinned commits for nerfstudio-rocm's accelerated ROCm dependencies.
+# Update by hand after intentionally advancing a submodule/pip install source;
+# `rocm/diagnostics.py` (ns-rocm-info) reads this file verbatim for bug reports.
+
+[stack]
+rocm = "7.2.2"
+python = "3.12"
+torch = "2.10.0"
+docker_base = "ghcr.io/bjoernellens1/splatograph:rocm-python-base-snapshot"
+
+[gsplat]
+repo = "https://github.com/bjoernellens1/gsplat"
+branch = "release/1.5.3b2"
+commit = "b01acd43e3c7fa942f95fda0974e9125e4de7395"
+status = "verified on gfx1151/gfx1100, forward+backward tested"
+
+[nerfacc]
+repo = "https://github.com/bjoernellens1/nerfacc-rocm"
+branch = "master"
+commit = "57ccfa14feb94975836ea6913149a86737220f2b"
+status = "unported — fresh fork of nerfstudio-project/nerfacc, CUDA-only until ported"
+
+[tiny_rocm_nn]
+repo = "https://github.com/bjoernellens1/tiny-rocm-nn"
+branch = "main"
+commit = "6f329355ee1130513aa4235302945b6932a40ebb"
+status = "HashGrid/Frequency/SphericalHarmonics/FullyFusedMLP ported and verified on MI300X (gfx942/CDNA); CutlassMLP not implemented; RDNA (gfx11xx/gfx12xx, incl. this machine's gfx1151) untested by upstream"
+
+[colmap]
+repo = "https://github.com/bjoernellens1/colmap"
+branch = "caspar-opencv-support"
+commit = "076f1633d20c1d64e360f063ac76db0653da3663"
+status = "patch_match_stereo HIP support merged; SIFT extraction/matching remain CPU-only on AMD (see ROCM.md)"

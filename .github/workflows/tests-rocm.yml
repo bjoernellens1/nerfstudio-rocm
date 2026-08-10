@@ -1,0 +1,25 @@
+name: tests-rocm
+
+# Self-hosted ROCm runner required (gfx1151/gfx942); no such runner exists yet
+# for this repo, so this workflow is manual-trigger only until one is
+# provisioned. Do not add `on: pull_request` before that runner exists.
+on:
+  workflow_dispatch:
+
+jobs:
+  phase1-baseline:
+    runs-on: [self-hosted, rocm]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ROCm image
+        run: docker build -f docker/Dockerfile.rocm -t nerfstudio-rocm:ci .
+      - name: Run Phase-1 baseline smoke test
+        run: |
+          docker run --rm \
+            --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host \
+            -v "$PWD/tests/rocm/logs:/workspace/nerfstudio-rocm/tests/rocm/logs" \
+            nerfstudio-rocm:ci bash scripts/smoke-test.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rocm-smoke-logs
+          path: tests/rocm/logs/

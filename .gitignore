@@ -191,3 +191,5 @@ camera_paths/
 # pixi environments
 .pixi
 /third_party
+# rocm smoke-test output
+tests/rocm/logs/

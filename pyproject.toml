@@ -138,7 +138,7 @@ ns-dev-test = "nerfstudio.scripts.github.run_actions:entrypoint"
 ns-dev-sync-viser-message-defs = "nerfstudio.scripts.viewer.sync_viser_message_defs:entrypoint"
 
 [tool.setuptools.packages.find]
-include = ["nerfstudio*"]
+include = ["nerfstudio*", "rocm*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.cu", "*.json", "py.typed", "setup.bash", "setup.zsh"]

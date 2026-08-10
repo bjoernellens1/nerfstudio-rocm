@@ -1,0 +1,49 @@
+# ROCm image for nerfstudio-rocm. Defaults to the public rocm/pytorch image at
+# the exact ROCm/torch versions pinned in dependencies/rocm-lock.toml. If you
+# have pull access to the splatograph project's private snapshot (faster,
+# pre-warmed with extra deps), override at build time with:
+#   --build-arg BASE_ROCM_PYTHON=ghcr.io/bjoernellens1/splatograph:rocm-python-base-snapshot
+ARG BASE_ROCM_PYTHON=docker.io/rocm/pytorch:rocm7.2.2_ubuntu24.04_py3.12_pytorch_release_2.10.0
+FROM ${BASE_ROCM_PYTHON}
+
+# gfx1151 = Strix Halo / Radeon 8060S (this project's primary dev target).
+# Override at build time for other targets, e.g. --build-arg PYTORCH_ROCM_ARCH=gfx942
+ARG PYTORCH_ROCM_ARCH=gfx1151
+ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH} \
+    HSA_XNACK=1 \
+    HSA_ENABLE_SDMA=0 \
+    CUDA_HOME=/opt/rocm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    build-essential \
+    cmake \
+    ninja-build \
+    libglm-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# --- gsplat: verified ROCm fork, pinned commit in dependencies/rocm-lock.toml ---
+RUN git clone --branch release/1.5.3b2 https://github.com/bjoernellens1/gsplat.git && \
+    cd gsplat && git submodule update --init --recursive && \
+    python3 docker/patch_glm_platform_h.py && \
+    CUDA_HOME=/opt/rocm python -m pip install --no-cache-dir --no-build-isolation .
+
+# --- nerfacc: fresh fork, unported — install in CPU/reference mode only for now ---
+RUN git clone https://github.com/bjoernellens1/nerfacc-rocm.git nerfacc && \
+    python -m pip install --no-cache-dir --no-build-isolation --no-deps ./nerfacc || \
+    echo "nerfacc-rocm: not yet ROCm-buildable, skipping (see ROCM.md)"
+
+# --- tiny-rocm-nn: partially ported, RDNA/gfx1151 unverified — best-effort build ---
+RUN git clone https://github.com/bjoernellens1/tiny-rocm-nn.git && \
+    cd tiny-rocm-nn/bindings/torch && \
+    (python -m pip install --no-cache-dir --no-build-isolation . || \
+     echo "tiny-rocm-nn: build failed on this arch, falling back to implementation=torch (see ROCM.md)")
+
+# --- nerfstudio itself ---
+COPY . /workspace/nerfstudio-rocm
+WORKDIR /workspace/nerfstudio-rocm
+RUN python -m pip install --no-cache-dir --no-build-isolation -e .
+
+CMD ["bash"]
