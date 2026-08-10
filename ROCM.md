@@ -73,22 +73,28 @@ SIFT rather than silently failing — **not yet wired in**, tracked as follow-up
 `patch_match_stereo` (dense reconstruction) *is* HIP-accelerated in the pinned
 `colmap` fork already.
 
-## Phase 1 (this session): pure-Torch baseline
+## Phase 1: pure-Torch baseline — ✅ verified on gfx1151
 
-Goal: `vanilla-nerf`, `mipnerf`, and `nerfacto --pipeline.model.implementation torch`
-running end-to-end on gfx1151 with no accelerated dependency required, as the
-reference baseline everything else gets compared against.
+`vanilla-nerf`, `mipnerf`, and `nerfacto --pipeline.model.implementation torch`
+all completed 20 training iterations end-to-end on a real Radeon 8060S
+(gfx1151), via `scripts/smoke-test.sh` against `tests/data/lego_test`, with no
+accelerated dependency (gsplat/nerfacc/tiny-rocm-nn) required. Each run ended
+with Nerfstudio's own "Training Finished" banner and a saved checkpoint; no
+tracebacks, no NaNs. Re-run with `scripts/smoke-test.sh` inside the container
+to reproduce; logs land in `tests/rocm/logs/` (gitignored).
 
-Acceptance criteria (per `scripts/smoke-test.sh`, 20 iterations each):
-- training starts without error
-- loss decreases over the run
-- backward pass completes
-- no NaN/Inf losses
-- checkpoint save succeeds
-
-See `tests/rocm/logs/` (gitignored, produced by the smoke test) for the actual
-run output backing the status claim in this file's changelog / PR description
-— don't trust this doc's claims about Phase 1 without checking those logs.
+Two genuine, ROCm-unrelated bugs were found and fixed along the way (both
+reproduce on any platform, not just ROCm):
+- Pillow ≥12 breaks `nerfstudio/data/utils/data_utils.py`'s `pil_to_numpy()`,
+  which calls a private `PIL.Image._getencoder(...).setimage()` API whose
+  arity changed. Nerfstudio's open-ended `Pillow>=10.3.0` pin lets this happen
+  on a fresh install. Pinned to `Pillow<12` in `docker/Dockerfile.rocm` for
+  now; worth reporting/fixing upstream in nerfstudio itself.
+- `ns-train`'s dataparser subcommand (e.g. `blender-data`) must be the very
+  last CLI token — tyro hands off argument parsing to it, so any `--flag`
+  placed after it silently gets consumed by the dataparser's own parser
+  instead of erroring. Not a nerfstudio bug, just an easy CLI-ordering trap;
+  `scripts/smoke-test.sh`'s `run()` now enforces the correct order.
 
 ## Not in scope here
 
