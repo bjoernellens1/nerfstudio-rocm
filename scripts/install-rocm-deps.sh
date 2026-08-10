@@ -27,7 +27,7 @@ python -m pip install --no-build-isolation --no-deps ./nerfacc || \
 
 echo "==> tiny-rocm-nn (partially ported — best effort on this arch)"
 rm -rf tiny-rocm-nn
-git clone https://github.com/bjoernellens1/tiny-rocm-nn.git
+git clone --recursive https://github.com/bjoernellens1/tiny-rocm-nn.git
 (cd tiny-rocm-nn/bindings/torch && python -m pip install --no-build-isolation .) || \
     echo "tiny-rocm-nn build failed on ${PYTORCH_ROCM_ARCH} — falls back to implementation=torch"
 
