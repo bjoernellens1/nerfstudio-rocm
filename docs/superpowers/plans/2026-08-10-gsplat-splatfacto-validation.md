@@ -181,6 +181,143 @@ gh issue close 3 --repo bjoernellens1/gsplat --comment "Fixed in $(git rev-parse
 
 ---
 
+### Task 2b: Port the wave32 fix onto release/1.5.3b2 (inserted mid-execution)
+
+**Why this task exists:** Task 2 fixed gsplat#3 (glm include path) but, in
+verifying it, discovered gsplat still fails to build at all on gfx1151: a
+new bug, filed as
+[gsplat#4](https://github.com/bjoernellens1/gsplat/issues/4) — the backward
+rasterization kernels hardcode a rocprim logical warp size of 64
+(`rocprim_warpSum<CDIM, 64>`, `rocprim::warp_reduce<float,64>`,
+`cg::tiled_partition<64>`), but gfx1151 (RDNA3.5) has a native wavefront
+size of 32, so `rocprim::check_virtual_wave_size`'s `static_assert` fails at
+compile time. This isn't confined to `RasterizeToPixels2DGSBwd.cu` (the file
+Task 2's diagnostic build happened to reach first) — the same `<64>`
+hardcoding exists in `RasterizeToPixels3DGSBwd.cu` (the kernel Splatfacto's
+default 3DGS mode actually needs for Task 4) and
+`RasterizeToPixelsFromWorld3DGSBwd.cu`. Confirmed via:
+```bash
+grep -rn "rocprim_warpSum<.*64\|warp_reduce<float,64\|tiled_partition<64" \
+  gsplat/cuda/csrc/*.cu gsplat/cuda/include/*.cuh
+```
+
+A candidate fix already exists on an unmerged branch,
+`origin/fix/gfx1151-wave32-review-cleanup`, which touches exactly these
+files with a wave32-aware version. It also bundles ~700 unrelated lines
+(CI workflow, `docker/Dockerfile.rocm-gfx11`, `docker/patch_glm_platform_h.py`,
+docs, examples, and its own different — and now superseded by Task 2's
+verified fix — approach to the glm problem in `setup.py`/`gsplat/cuda/_backend.py`).
+Confirmed via:
+```bash
+git -C /home/bjoern/git/gsplat diff --stat \
+  b01acd43e3c7fa942f95fda0974e9125e4de7395..origin/fix/gfx1151-wave32-review-cleanup
+```
+which lists 14 changed files; only 4 are the actual kernel/wave-size fix:
+`gsplat/cuda/csrc/RasterizeToPixels2DGSBwd.cu`,
+`gsplat/cuda/csrc/RasterizeToPixels3DGSBwd.cu`,
+`gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSBwd.cu`,
+`gsplat/cuda/include/Utils.cuh`.
+
+**Files:**
+- Modify: `/home/bjoern/git/gsplat/gsplat/cuda/csrc/RasterizeToPixels2DGSBwd.cu`
+- Modify: `/home/bjoern/git/gsplat/gsplat/cuda/csrc/RasterizeToPixels3DGSBwd.cu`
+- Modify: `/home/bjoern/git/gsplat/gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSBwd.cu`
+- Modify: `/home/bjoern/git/gsplat/gsplat/cuda/include/Utils.cuh`
+- Do NOT modify `setup.py` or `gsplat/cuda/_backend.py` in this task — Task 2's
+  glm fix in `setup.py` is already verified and must not be overwritten or
+  reintroduced-and-conflicted-with by the branch's different approach there.
+
+**Interfaces:**
+- Consumes: Task 2's commit `42d17c9` on `release/1.5.3b2` (glm fix, already
+  verified working for both compile paths).
+- Produces: a gsplat commit on `release/1.5.3b2` where `CUDA_HOME=/opt/rocm
+  python -m pip install --no-build-isolation .` succeeds all the way through
+  (not just past the glm errors) and
+  `python -c "from gsplat.cuda._backend import _C; print(_C)"` prints a
+  module path — needed before Task 3 (test suite) or Task 4 (Splatfacto
+  training) can proceed at all, since neither can run against a package that
+  doesn't build.
+
+- [ ] **Step 1: Extract only the wave32-relevant hunks from the candidate branch for the 4 files above**
+
+```bash
+cd /home/bjoern/git/gsplat
+git diff b01acd43e3c7fa942f95fda0974e9125e4de7395..origin/fix/gfx1151-wave32-review-cleanup -- \
+  gsplat/cuda/csrc/RasterizeToPixels2DGSBwd.cu \
+  gsplat/cuda/csrc/RasterizeToPixels3DGSBwd.cu \
+  gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSBwd.cu \
+  gsplat/cuda/include/Utils.cuh \
+  > /tmp/gsplat-wave32-fix.diff
+```
+
+Read the resulting diff in full before applying anything — confirm every
+hunk is genuinely about wave32/warp-size (the `<64>` → `<32>`-style changes
+already sampled during planning) and not something else incidentally
+touching the same files. If any hunk looks unrelated, exclude it and note
+why in your report.
+
+- [ ] **Step 2: Apply the fix on top of Task 2's commit**
+
+```bash
+git checkout release/1.5.3b2
+git pull origin release/1.5.3b2   # picks up Task 2's 42d17c9
+git apply /tmp/gsplat-wave32-fix.diff
+```
+
+If `git apply` fails (context mismatch against Task 2's changes, since both
+touch code near each other in spirit even if not the same lines), fall back
+to manually applying each hunk's intent using the file structure at HEAD —
+the underlying change is mechanical (every hardcoded `64` warp/wave-size
+literal relevant to RDNA becomes `32`, or becomes conditional on
+`__AMDGCN_WAVEFRONT_SIZE`/`warpSize` per the sampled hunks in this task's
+"Why this task exists" section above), not something requiring new design.
+
+- [ ] **Step 3: Build and verify with real GPU devices attached**
+
+```bash
+podman run --rm --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host \
+  -v /home/bjoern/git/gsplat:/tmp/gsplat-debug:ro \
+  --entrypoint bash localhost/nerfstudio-rocm:phase1-pillowfix -c '
+cp -r /tmp/gsplat-debug /tmp/gsplat
+cd /tmp/gsplat
+git submodule update --init --recursive
+CUDA_HOME=/opt/rocm python -m pip install -v --no-build-isolation . 2>&1 | tail -60
+python -c "from gsplat.cuda._backend import _C; print(_C)"
+'
+```
+
+Expected: build completes with no errors, import prints a module path (not
+`None`, not "No CUDA toolkit found").
+
+- [ ] **Step 4: Commit and push**
+
+```bash
+cd /home/bjoern/git/gsplat
+git add gsplat/cuda/csrc/RasterizeToPixels2DGSBwd.cu \
+        gsplat/cuda/csrc/RasterizeToPixels3DGSBwd.cu \
+        gsplat/cuda/csrc/RasterizeToPixelsFromWorld3DGSBwd.cu \
+        gsplat/cuda/include/Utils.cuh
+git commit -m "fix: use native wave32 warp/wavefront size on RDNA (gfx1151) in backward rasterization kernels (fixes #4)
+
+Ports the kernel-only portion of the wave32 fix from
+origin/fix/gfx1151-wave32-review-cleanup — rocprim_warpSum, warp_reduce,
+and cg::tiled_partition were hardcoded to a logical warp size of 64
+(matching CDNA/Instinct wavefronts), which fails rocprim's
+check_virtual_wave_size static_assert on RDNA3.5's native 32-lane
+wavefronts. Does not port that branch's setup.py/docker/CI changes —
+this repo's glm fix (42d17c9) already covers the include-path problem
+via a different, already-verified approach."
+git push origin release/1.5.3b2
+```
+
+- [ ] **Step 5: Close the GitHub issue**
+
+```bash
+gh issue close 4 --repo bjoernellens1/gsplat --comment "Fixed in $(git -C /home/bjoern/git/gsplat rev-parse --short HEAD): ported the kernel-only wave32 fix (RasterizeToPixels2DGSBwd/3DGSBwd/FromWorld3DGSBwd.cu, Utils.cuh) from origin/fix/gfx1151-wave32-review-cleanup, isolated from that branch's unrelated CI/Docker/setup.py changes. Verified building and importing cleanly on gfx1151 with real GPU devices attached."
+```
+
+---
+
 ### Task 3: Run gsplat's test suite on gfx1151
 
 **Files:**
