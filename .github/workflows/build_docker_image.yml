@@ -1,14 +1,10 @@
+# Builds upstream Nerfstudio's CUDA image (./Dockerfile), unrelated to this
+# fork's ROCm work (see docker/Dockerfile.rocm instead) and previously ~1hr
+# per run. Restricted to manual trigger so it doesn't fire on every push.
 name: Build Docker Image
 on:
   workflow_dispatch:
   workflow_call:
-  pull_request:
-  push:
-    branches:
-      - main
-      - master
-    tags:
-      - 'v*'
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
