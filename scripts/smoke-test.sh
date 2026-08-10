@@ -22,11 +22,11 @@ run() {
         2>&1 | tee "${LOG_DIR}/${name}.log"
 }
 
-# vanilla-nerf/mipnerf default to BlenderDataParserConfig already; nerfacto
-# defaults to NerfstudioDataParserConfig (COLMAP-style) so it needs an
-# explicit dataparser override to work with this fixture.
+# vanilla-nerf defaults to BlenderDataParserConfig; mipnerf and nerfacto
+# default to NerfstudioDataParserConfig (COLMAP-style transforms.json), so
+# both need an explicit dataparser override to work with this fixture.
 run vanilla-nerf vanilla-nerf
-run mipnerf mipnerf
+run mipnerf mipnerf blender-data
 run nerfacto-torch nerfacto --pipeline.model.implementation torch blender-data
 
 echo "==> smoke test complete, logs in ${LOG_DIR}"
