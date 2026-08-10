@@ -14,19 +14,24 @@ mkdir -p "${LOG_DIR}"
 
 python -m rocm.diagnostics | tee "${LOG_DIR}/rocm-info.log"
 
+# The dataparser subcommand (e.g. `blender-data`) must be the LAST token —
+# tyro's CLI hands off parsing to it, so any --flag after it belongs to the
+# dataparser, not the method. method_args are everything before that handoff.
 run() {
     local name="$1"; shift
+    local dataparser="$1"; shift
     echo "==> ${name}"
     ns-train "$@" --data "${DATA_DIR}" --max-num-iterations 20 \
         --viewer.quit-on-train-completion True --vis tensorboard \
+        "${dataparser}" \
         2>&1 | tee "${LOG_DIR}/${name}.log"
 }
 
 # vanilla-nerf defaults to BlenderDataParserConfig; mipnerf and nerfacto
 # default to NerfstudioDataParserConfig (COLMAP-style transforms.json), so
 # both need an explicit dataparser override to work with this fixture.
-run vanilla-nerf vanilla-nerf
-run mipnerf mipnerf blender-data
-run nerfacto-torch nerfacto --pipeline.model.implementation torch blender-data
+run vanilla-nerf blender-data vanilla-nerf
+run mipnerf blender-data mipnerf
+run nerfacto-torch blender-data nerfacto --pipeline.model.implementation torch
 
 echo "==> smoke test complete, logs in ${LOG_DIR}"
