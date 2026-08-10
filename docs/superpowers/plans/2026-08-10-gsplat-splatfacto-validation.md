@@ -559,8 +559,6 @@ gsplat's test suite and Splatfacto training (7000 iterations on the
 bonsai mip-nerf360 scene) both verified working on real gfx1151
 hardware. docker/Dockerfile.rocm no longer falls back silently on
 gsplat build failure — it's a real, required dependency now.
-
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
 )"
 git push origin main
@@ -620,8 +618,6 @@ cd /home/bjoern/git/nerfstudio-rocm
 git add tests/rocm/README.md .github/workflows/tests-rocm.yml
 git commit -m "$(cat <<'EOF'
 Document splatfacto smoke test for future self-hosted CI runner
-
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 EOF
 )"
 git push origin main
