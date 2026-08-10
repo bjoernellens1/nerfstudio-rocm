@@ -19,6 +19,16 @@ jobs:
             --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host \
             -v "$PWD/tests/rocm/logs:/workspace/nerfstudio-rocm/tests/rocm/logs" \
             nerfstudio-rocm:ci bash scripts/smoke-test.sh
+      - name: Run Splatfacto smoke test (bonsai, mip-nerf360)
+        # NOTE: dataset mount path below is a placeholder — no self-hosted
+        # gfx1151 runner exists yet to validate the real path. Update when
+        # one is provisioned.
+        run: |
+          docker run --rm \
+            --device=/dev/kfd --device=/dev/dri --group-add video --ipc=host \
+            -v /data/mipnerf360:/data/mipnerf360:ro \
+            -v "$PWD/tests/rocm/logs:/workspace/nerfstudio-rocm/tests/rocm/logs" \
+            nerfstudio-rocm:ci bash -c "ns-train splatfacto --data /data/mipnerf360/bonsai --max-num-iterations 7000 --viewer.quit-on-train-completion True --vis tensorboard colmap --images-path images --colmap-path sparse/0 --downscale-factor 4 --downscale-rounding-mode round"
       - uses: actions/upload-artifact@v4
         with:
           name: rocm-smoke-logs
