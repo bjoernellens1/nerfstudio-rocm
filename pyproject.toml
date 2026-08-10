@@ -64,7 +64,17 @@ dependencies = [
     "xatlas",
     "trimesh>=3.20.2",
     "timm==0.6.7",
-    "gsplat==1.4.0",
+    # gsplat is intentionally NOT pinned here. On ROCm, docker/Dockerfile.rocm
+    # installs the verified bjoernellens1/gsplat fork (pinned commit in
+    # dependencies/rocm-lock.toml) as a hard prerequisite before this package
+    # is installed. That fork's distribution name is "amd_gsplat" (not
+    # "gsplat", to coexist with upstream on PyPI) even though it still
+    # provides the `gsplat` import namespace — so pip's resolver can't see it
+    # as satisfying a `gsplat==X` pin. Keeping that pin here made `pip
+    # install -e .` silently fetch the stock CUDA-only PyPI `gsplat` package
+    # afterwards and overwrite the ROCm build's files in site-packages/gsplat/,
+    # defeating the ROCm install entirely. On CUDA, install gsplat separately
+    # per nerfstudio's upstream instructions (`pip install gsplat==1.4.0`).
     "pytorch-msssim",
     "pathos",
     "packaging",
