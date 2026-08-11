@@ -21,11 +21,22 @@ def _pinned_deps() -> dict:
         return tomllib.load(f)
 
 
+# gsplat and nerfacc's ROCm forks publish under an `amd_`-prefixed distribution
+# name (so they can coexist with the stock CUDA packages on PyPI) while still
+# installing into the unprefixed import namespace — see the pyproject.toml
+# comments and ROCM.md's "Known build issues" section for the empirical
+# writeup. Try the fork's distribution name first, falling back to the
+# unprefixed name for a stock/CUDA install.
+_ALT_DIST_NAMES = {"gsplat": "amd_gsplat", "nerfacc": "amd_nerfacc"}
+
+
 def _pkg_version(name: str) -> str:
-    try:
-        return importlib.metadata.version(name)
-    except importlib.metadata.PackageNotFoundError:
-        return "not installed"
+    for candidate in dict.fromkeys((_ALT_DIST_NAMES.get(name, name), name)):
+        try:
+            return importlib.metadata.version(candidate)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return "not installed"
 
 
 def main() -> None:
