@@ -35,10 +35,16 @@ rm -rf nerfacc
 git clone --branch release/0.5.3 https://github.com/bjoernellens1/nerfacc-rocm.git nerfacc
 python -m pip install --no-build-isolation --no-deps ./nerfacc
 
-echo "==> tiny-rocm-nn (partially ported — best effort on this arch)"
+# tiny-rocm-nn: verified on gfx1151 (wave32 numerical correctness + Instant-NGP
+# training run with tcnn genuinely active, see ROCM.md "tiny-rocm-nn: what's actually
+# there") — hard dependency, same pattern as gsplat/nerfacc above, no `||` fallback:
+# a failure here should abort loudly rather than silently skip a verified dependency.
+# NOTE: --recursive is required — tiny-rocm-nn vendors `dependencies/fmt` as a git
+# submodule that a plain clone does not populate, and the build fails on a missing
+# format.cc without it.
+echo "==> tiny-rocm-nn (verified ROCm fork — wave32 numerics checked on gfx1151)"
 rm -rf tiny-rocm-nn
-git clone --recursive https://github.com/bjoernellens1/tiny-rocm-nn.git
-(cd tiny-rocm-nn/bindings/torch && python -m pip install --no-build-isolation .) || \
-    echo "tiny-rocm-nn build failed on ${PYTORCH_ROCM_ARCH} — falls back to implementation=torch"
+git clone --recursive --branch rocm-gfx1151-validation https://github.com/bjoernellens1/tiny-rocm-nn.git
+(cd tiny-rocm-nn/bindings/torch && python -m pip install --no-build-isolation .)
 
 echo "==> done"

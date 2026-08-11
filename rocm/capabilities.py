@@ -2,13 +2,18 @@
 implementations per-component instead of an all-or-nothing switch.
 
 Values below reflect the state of the pinned `tiny-rocm-nn` commit recorded in
-dependencies/rocm-lock.toml as of the initial fork (verified by inspecting that
-repo directly, not assumed from documentation): SphericalHarmonics is present
+dependencies/rocm-lock.toml (verified by inspecting that repo directly, not
+assumed from documentation): SphericalHarmonics is present
 (include/tiny-cuda-nn/encodings/spherical_harmonics.h, wired into encoding.cpp).
 CutlassMLP has no ROCm equivalent. The upstream tiny-rocm-nn README targets
-CDNA/MFMA (gfx90a, gfx942) explicitly; RDNA3.5/gfx1151 (this machine) is
-untested by that project, so fully_fused_mlp is marked untested rather than
-False — verify empirically before trusting it, see ROCM.md.
+CDNA/MFMA (gfx90a, gfx942) explicitly and its documented benchmarks are
+MI300X-only, but RDNA3.5/gfx1151 (this machine) has since been independently
+verified numerically correct: HashGrid, SphericalHarmonics, and FullyFusedMLP
+all match an independent PyTorch reference to within ~1-2 fp16 ULP in both
+forward and backward, with no wave32 lane/shuffle bug found (see
+`tests/rocm/tcnn_wave32_correctness.py` and ROCM.md's "tiny-rocm-nn: what's
+actually there" section for the full evidence). `ROCM_RDNA_CAPS.verified_on_this_arch`
+is therefore `True`.
 """
 
 from dataclasses import dataclass, field
@@ -37,8 +42,8 @@ CUDA_CAPS = TcnnCapabilities(
     verified_on_this_arch=True,
 )
 
-# tiny-rocm-nn as pinned: HashGrid/Frequency/SH ported, FullyFusedMLP ported but
-# only verified on MI300X (gfx942) upstream, not on RDNA (gfx11xx/gfx12xx).
+# tiny-rocm-nn as pinned: HashGrid/Frequency/SH ported, FullyFusedMLP ported and
+# verified on MI300X (gfx942) upstream.
 ROCM_CDNA_CAPS = TcnnCapabilities(
     hash_grid=True,
     frequency=True,
@@ -49,6 +54,13 @@ ROCM_CDNA_CAPS = TcnnCapabilities(
     verified_on_this_arch=True,
 )
 
+# Numerically verified on gfx1151 (RDNA3.5, this project's dev target) only —
+# see the module docstring and ROCM.md's "tiny-rocm-nn: what's actually there"
+# section for the evidence. `verified_on_this_arch=True` here is applied to the
+# whole RDNA/wave32 family (gfx11xx/gfx12xx: RDNA3, RDNA3.5, RDNA4) that
+# `is_rdna()` matches, on the same "one measured arch is representative of its
+# family" basis `ROCM_CDNA_CAPS` already uses for gfx942 — it is not
+# independently verified on other RDNA generations (e.g. RDNA4/gfx1201).
 ROCM_RDNA_CAPS = TcnnCapabilities(
     hash_grid=True,
     frequency=True,
@@ -56,7 +68,7 @@ ROCM_RDNA_CAPS = TcnnCapabilities(
     fully_fused_mlp=True,
     cutlass_mlp=False,
     supported_widths=frozenset({64, 128}),
-    verified_on_this_arch=False,
+    verified_on_this_arch=True,
 )
 
 CPU_CAPS = TcnnCapabilities(

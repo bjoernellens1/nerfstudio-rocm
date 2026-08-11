@@ -37,11 +37,15 @@ RUN git clone --branch release/0.5.3 https://github.com/bjoernellens1/nerfacc-ro
     cd nerfacc && \
     CUDA_HOME=/opt/rocm python -m pip install --no-cache-dir --no-build-isolation --no-deps .
 
-# --- tiny-rocm-nn: partially ported, RDNA/gfx1151 unverified — best-effort build ---
-RUN git clone --recursive https://github.com/bjoernellens1/tiny-rocm-nn.git && \
+# --- tiny-rocm-nn: verified on gfx1151 (wave32 numerical correctness + Instant-NGP
+# training run with tcnn genuinely active, see ROCM.md "tiny-rocm-nn: what's actually
+# there") — hard dependency, same pattern as gsplat/nerfacc.
+# NOTE: --recursive is required — tiny-rocm-nn vendors `dependencies/fmt` as a git
+# submodule that a plain clone does not populate, and the build fails on a missing
+# format.cc without it.
+RUN git clone --recursive --branch rocm-gfx1151-validation https://github.com/bjoernellens1/tiny-rocm-nn.git && \
     cd tiny-rocm-nn/bindings/torch && \
-    (python -m pip install --no-cache-dir --no-build-isolation . || \
-     echo "tiny-rocm-nn: build failed on this arch, falling back to implementation=torch (see ROCM.md)")
+    python -m pip install --no-cache-dir --no-build-isolation .
 
 # --- nerfstudio itself --- (build isolation needed: some deps' sdists pull
 # in their own build backend, e.g. scikit-build-core, that isn't preinstalled)
