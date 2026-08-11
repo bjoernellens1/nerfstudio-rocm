@@ -193,3 +193,6 @@ camera_paths/
 /third_party
 # rocm smoke-test output
 tests/rocm/logs/
+
+# Local Git worktrees
+.worktrees/
