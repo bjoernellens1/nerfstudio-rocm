@@ -19,6 +19,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     ninja-build \
+    libeigen3-dev \
+    libopencv-dev \
+    libsqlite3-dev \
+    libboost-all-dev \
+    libceres-dev \
+    libgflags-dev \
+    libgoogle-glog-dev \
+    libatlas-base-dev \
+    libsuitesparse-dev \
+    libflann-dev \
+    libfreeimage-dev \
+    libmetis-dev \
+    libgtest-dev \
+    libgmock-dev \
+    libglew-dev \
+    qtbase5-dev \
+    libqt5opengl5-dev \
+    libcgal-dev \
+    libcgal-qt5-dev \
+    libcurl4-openssl-dev \
+    libopenimageio-dev \
+    openimageio-tools \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
@@ -46,6 +69,27 @@ RUN git clone --branch release/0.5.3 https://github.com/bjoernellens1/nerfacc-ro
 RUN git clone --recursive --branch rocm-gfx1151-validation https://github.com/bjoernellens1/tiny-rocm-nn.git && \
     cd tiny-rocm-nn/bindings/torch && \
     python -m pip install --no-cache-dir --no-build-isolation .
+
+# --- COLMAP: ROCm fork with full HIP acceleration (GPU SIFT extraction/matching,
+# patch_match_stereo dense reconstruction, and CASPAR bundle adjustment with native
+# OPENCV camera-model support) — hip-integration branch, pinned commit in
+# dependencies/rocm-lock.toml. This exact branch/build recipe is already verified
+# end-to-end on real gfx1151 hardware by an independent production pipeline
+# (rosbag-colmap-pipeline's `gttool run-colmap`, see its docs/local-hip-run.md) —
+# this build step ports that proven recipe, it does not re-derive it from scratch.
+# See ROCM.md's COLMAP section for the verification evidence and what's still
+# specific to nerfstudio-rocm's own build (not yet independently re-run here).
+RUN git clone --branch hip-integration https://github.com/bjoernellens1/colmap.git colmap-src && \
+    mkdir -p colmap-src/build && cd colmap-src/build && \
+    cmake .. -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCUDA_ENABLED=OFF \
+        -DHIP_ENABLED=ON \
+        -DCMAKE_HIP_ARCHITECTURES=${PYTORCH_ROCM_ARCH} \
+        -DCASPAR_ENABLED=ON \
+    && ninja -j "$(nproc)" \
+    && ninja install \
+    && cd /workspace && rm -rf colmap-src
 
 # --- nerfstudio itself --- (build isolation needed: some deps' sdists pull
 # in their own build backend, e.g. scikit-build-core, that isn't preinstalled)

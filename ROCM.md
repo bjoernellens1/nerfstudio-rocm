@@ -31,7 +31,7 @@ own upstream so fixes can be merged back there:
 | [gsplat](https://github.com/bjoernellens1/gsplat) | [AMD-Ecosystem/gsplat](https://github.com/AMD-Ecosystem/gsplat) (→ [nerfstudio-project/gsplat](https://github.com/nerfstudio-project/gsplat)) | **verified on gfx1151**: builds cleanly under `docker build` (hard dependency in `docker/Dockerfile.rocm`); full pytest suite 114 passed / 1 skipped / **87 failed** — all 87 attributable to the test-only `nerfacc` dependency having no ROCm support at the time (measured before `nerfacc-rocm` existed; worth re-running now that a verified ROCm nerfacc is available, see the nerfacc-rocm row below), zero gsplat kernel failures (see [#5](https://github.com/bjoernellens1/gsplat/issues/5)); Splatfacto trained 7000 iterations on the bonsai (mip-nerf360) scene end-to-end with no NaN/Inf and confirmed densification |
 | [nerfacc-rocm](https://github.com/bjoernellens1/nerfacc-rocm) | [AMD-Ecosystem/nerfacc](https://github.com/AMD-Ecosystem/nerfacc) (→ [nerfstudio-project/nerfacc](https://github.com/nerfstudio-project/nerfacc)) | **verified on gfx1151**: builds cleanly under `docker build` (hard dependency in `docker/Dockerfile.rocm`); own pytest suite 23 passed / 0 failed (21/23 real exercised coverage; see below); Instant-NGP trained 5000 iterations on the bonsai (mip-nerf360) scene end-to-end with no NaN/Inf, healthy loss/PSNR trend, and a final-checkpoint occupancy grid 29.07% occupied confirming `OccGridEstimator` correctly prunes empty space |
 | [tiny-rocm-nn](https://github.com/bjoernellens1/tiny-rocm-nn) | [ZJLi2013/tiny-rocm-nn](https://github.com/ZJLi2013/tiny-rocm-nn) | **verified on gfx1151** — see below |
-| [colmap](https://github.com/bjoernellens1/colmap) | [colmap/colmap](https://github.com/colmap/colmap) | `patch_match_stereo` HIP support merged; feature extraction/matching CPU-only on AMD (see §COLMAP) |
+| [colmap](https://github.com/bjoernellens1/colmap) | [colmap/colmap](https://github.com/colmap/colmap) | **full HIP acceleration** (GPU SIFT, patch_match_stereo, CASPAR bundle adjustment) — `hip-integration` branch, hard dependency in `docker/Dockerfile.rocm` (see §COLMAP) |
 
 Pinned commits for all of the above: [`dependencies/rocm-lock.toml`](dependencies/rocm-lock.toml).
 Run `python -m rocm.diagnostics` (`ns-rocm-info`) inside the container to print the live stack + pins.
@@ -46,7 +46,7 @@ gsplat's two `docker build`-time issues are both fixed: the vendored glm submodu
 
 - **nerfacc's docker-built kernel artifact hasn't had a live on-device GPU re-run since the last verification pass**: the Instant-NGP training run and pytest suite (see "nerfacc-rocm: verified on gfx1151" below) were completed successfully, but a follow-up live-GPU kernel smoke test of that same docker-built artifact hit failures root-caused to external GPU contention on the dev machine (confirmed via a control test against a stock, unmodified image, which failed the same way) — not a defect in the nerfacc-rocm build itself. Tracked as a follow-up: re-run the on-device GPU kernel test once the GPU is free of contention to close this out.
 
-- **`nerfstudio/utils/eval_utils.py:62`'s `torch.load(load_path, map_location="cpu")` breaks under torch's post-2.6 `weights_only=True` default**, unrelated to ROCm — `pyproject.toml` pins `torch==2.7.1` (affected). Loading a trained nerfstudio checkpoint through the stock `eval_setup()` helper (used by `ns-eval`/`ns-render`) raises `_pickle.UnpicklingError: Weights only load failed ... Unsupported global: GLOBAL numpy._core.multiarray.scalar was not an allowed global by default`, because nerfstudio checkpoints pickle a bare numpy scalar in their state dict. Confirmed while verifying tiny-rocm-nn's Instant-NGP integration (`ns-train instant-ngp` itself trains and checkpoints fine; only the *loading* path is affected). Worked around for verification purposes only, by calling `torch.load(ckpt_path, map_location="cpu", weights_only=False)` directly rather than through `eval_setup()` — no repo change made, tracked as a follow-up fix (e.g. `torch.serialization.add_safe_globals([numpy._core.multiarray.scalar])` in `eval_utils.py`, same shape as the Pillow<12 fix above).
+- **FIXED: `nerfstudio/utils/eval_utils.py:62`'s `torch.load(load_path, map_location="cpu")` broke under torch's post-2.6 `weights_only=True` default**, unrelated to ROCm — `pyproject.toml` pins `torch==2.7.1` (affected). Loading a trained nerfstudio checkpoint through the stock `eval_setup()` helper (used by `ns-eval`/`ns-render`) raised `_pickle.UnpicklingError: Weights only load failed ... Unsupported global: GLOBAL numpy._core.multiarray.scalar was not an allowed global by default`, because nerfstudio checkpoints pickle a bare numpy scalar in their state dict. Found while verifying tiny-rocm-nn's Instant-NGP integration (`ns-train instant-ngp` itself trains and checkpoints fine; only the *loading* path was affected). Fixed by passing `weights_only=False` explicitly at all three affected `torch.load` call sites (`eval_utils.py`, and `engine/trainer.py`'s two checkpoint-resume call sites, same bug class) — these load nerfstudio's own trusted checkpoint output, not third-party input, so this is safe. Verified via a synthetic repro matching the exact failure signature (a bare numpy scalar embedded in a pickled state dict): fails under the torch default, succeeds with the fix.
 
 ## tiny-rocm-nn: what's actually there
 
@@ -153,14 +153,83 @@ Validation performed (not just a build smoke test):
 Now installs as a hard, non-fallback build step in `docker/Dockerfile.rocm`
 (same pattern as gsplat).
 
-## COLMAP
+## COLMAP: full HIP acceleration
 
-Nerfstudio's COLMAP wrapper's `gpu=True` path uses CUDA SIFT extraction/matching,
-which has no ROCm equivalent. On AMD, `rocm/backend.py`'s `is_rocm()` should
-gate this off in the data-processing scripts so COLMAP falls back to CPU
-SIFT rather than silently failing — **not yet wired in**, tracked as follow-up.
-`patch_match_stereo` (dense reconstruction) *is* HIP-accelerated in the pinned
-`colmap` fork already.
+`docker/Dockerfile.rocm` now builds `bjoernellens1/colmap`'s `hip-integration`
+branch from source (`-DCUDA_ENABLED=OFF -DHIP_ENABLED=ON -DCASPAR_ENABLED=ON
+-DCMAKE_HIP_ARCHITECTURES=${PYTORCH_ROCM_ARCH}`), replacing the previous
+`caspar-opencv-support` pin. This branch has all three of COLMAP's GPU-heavy
+paths HIP-accelerated: GPU SIFT feature extraction/matching, `patch_match_stereo`
+dense stereo, and CASPAR bundle adjustment (including native `OPENCV`
+camera-model support). The previous `caspar-opencv-support` branch only had
+`patch_match_stereo`; `hip-integration` is a strict superset that additionally
+absorbed OpenCV-Caspar support and fixed a real NaN bug in Caspar's BA that
+`caspar-opencv-support` still has unpatched (see below).
+
+**Where this verification comes from.** This exact branch/commit and build
+recipe is already proven end-to-end on real gfx1151 hardware — not by this
+repo, but by an independent sibling project, `rosbag-colmap-pipeline`
+(`colmap-rgbd-gt` / `gttool`), which vendors the same `hip-integration` source
+as its own default local Docker build and has run its full production
+pipeline (`gttool run-colmap`, not just raw `colmap` CLI calls) against a
+613-frame real RGB-D scene: 613/613 frames registered, genuine GPU-side work
+confirmed in logs throughout feature extraction/matching/global positioning
+(not a silent CPU fallback), and Caspar-HIP `OPENCV`-model bundle adjustment
+converging correctly after a real bug was found, root-caused, and fixed. See
+that repo's `docs/local-hip-run.md` for the full verification writeup.
+
+**The bug that was found and fixed** (`bjoernellens1/colmap` commit
+`b5ead5a9`, now part of `hip-integration`): two of Caspar's generated
+`OPENCV`-camera-model score kernels declared their per-thread squared-residual
+accumulator once per invocation but only ever assigned it inside a
+problem-size guard; `SumStore()` then read that accumulator unconditionally
+for every thread in the launched block, so any "padding lane" thread (the
+common case for real problem sizes) read an uninitialized register —
+undefined behavior that reliably decoded as NaN for OpenCV's larger,
+more register-pressured kernel, silently corrupting the whole reduction from
+iteration 0. Fixed by explicitly zeroing the accumulator for out-of-range
+threads before the reduction. Verified on a 613-image/54458-point real
+problem: genuine 70-90-iteration convergence (score `4.5487e5 → ~4.4298e5`)
+instead of a false 3-iteration bail-out with unchanged output. The same
+uninitialized-accumulator pattern likely exists in every other generated
+score kernel across every camera model — currently unpatched (numerically
+silent so far, not proven safe by construction) and flagged as an open risk,
+not blanket-patched without per-model verification.
+
+**A second, independent bug was found and fixed in this repo while wiring
+this in**: `nerfstudio/process_data/colmap_utils.py` used the CLI option names
+`--SiftExtraction.use_gpu`/`--SiftMatching.use_gpu`, which upstream COLMAP
+renamed to `--FeatureExtraction.use_gpu`/`--FeatureMatching.use_gpu` in 3.13.0
+(part of generalizing feature extraction beyond SIFT) without keeping the old
+names as aliases. `hip-integration` builds COLMAP 4.2.0.dev0, well past that
+rename — the old flag names would have caused `feature_extractor`/
+`*_matcher` to error out, meaning GPU SIFT would never actually have been
+reachable through nerfstudio's own COLMAP invocation even with a fully
+HIP-accelerated binary. Not ROCm-specific (would break on any recent CUDA
+COLMAP too), but only surfaced now because this is the first time this repo
+built a COLMAP recent enough to hit it. Fixed with a version gate using the
+existing `get_colmap_version()` check already present in that file.
+
+**Build-time verification done in this repo**: `docker build -f
+docker/Dockerfile.rocm` completes successfully (no GPU device access needed
+to compile). The resulting binary reports `COLMAP 4.2.0.dev0 (Commit
+807af94b ... with HIP)` — confirming the exact pinned, attribution-clean
+commit and that HIP support actually compiled in, not silently disabled.
+`feature_extractor -h` confirms `--FeatureExtraction.use_gpu` is the real,
+present flag (validating the `colmap_utils.py` fix above against the actual
+binary, not just the source), and `bundle_adjuster -h` confirms the `CASPAR`
+backend and its options are present.
+
+**What's not yet independently verified in *this* repo specifically**: actual
+runtime GPU execution — a real `ns-process-data`/`colmap feature_extractor
+--gpu` run producing correct features/matches on this repo's own container.
+The `rosbag-colmap-pipeline` verification above is strong evidence the same
+source/build recipe works at runtime too, but this repo hasn't run that
+check itself yet (blocked on a transient host GPU issue at the time this was
+wired in — tracked as a follow-up, not a defect in the approach). Do the same
+rigor as the other dependencies once GPU access is available: run a real
+`ns-process-data images --gpu` (or equivalent COLMAP invocation) against a
+real image set end-to-end.
 
 ## Phase 1: pure-Torch baseline — ✅ verified on gfx1151
 

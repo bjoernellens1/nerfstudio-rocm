@@ -28,6 +28,6 @@ status = "verified on gfx1151: builds cleanly under `docker build` (hipBLAS API-
 
 [colmap]
 repo = "https://github.com/bjoernellens1/colmap"
-branch = "caspar-opencv-support"
-commit = "076f1633d20c1d64e360f063ac76db0653da3663"
-status = "patch_match_stereo HIP support merged; SIFT extraction/matching remain CPU-only on AMD (see ROCM.md)"
+branch = "hip-integration"
+commit = "807af94b517b7637c5872194a47825c686c7983d"
+status = "full HIP acceleration: GPU SIFT extraction/matching, patch_match_stereo dense stereo, and CASPAR bundle adjustment (native OPENCV camera-model support) all HIP-accelerated; hard dependency in docker/Dockerfile.rocm (-DCUDA_ENABLED=OFF -DHIP_ENABLED=ON -DCASPAR_ENABLED=ON). Verified end-to-end on real gfx1151 hardware by rosbag-colmap-pipeline's production gttool run-colmap pipeline (613/613 frames registered, genuine GPU-side SIFT confirmed in logs, Caspar-HIP OPENCV bundle adjustment converging correctly after a real NaN bug was found and fixed in commit b5ead5a9 — see docs/local-hip-run.md in that repo). nerfstudio-rocm's own Docker build of this branch/commit has not yet had its own independent build+runtime verification pass (tracked as a follow-up in ROCM.md)."
