@@ -34,8 +34,9 @@ typically 1e2..1e4 times the floor.  We flag PASS when
 |tcnn - a| <= FLOOR_FACTOR * max(|b - a|, tiny) and FAIL otherwise.
 
 Also checked, because they are the specific signature of a wave-size bug:
-  * batch-size sweep across / around the 128-element `batch_size_granularity`
-    (tail-handling bugs only appear at some sizes),
+  * batch-size sweep across / around the `batch_size_granularity` (256 on this
+    build) and the 32/64 lane boundaries -- tail-handling bugs only appear at
+    some sizes,
   * bitwise run-to-run determinism (a wave-size race shows up as nondeterminism
     that a single reference comparison can pass by luck),
   * error *structure* -- which rows fail and whether they cluster mod 16/32/64.
@@ -352,6 +353,48 @@ def run_mlp_test(activation: nn.Module, tag: str, component: str) -> None:
             do_backward(x0[safe], dout[safe], f"bs={n} kink-safe", component)
         else:
             do_backward(x0, dout, f"bs={bs}", component)
+
+    if isinstance(activation, nn.ReLU):
+        # Decisive discriminator between "ReLU kink" and "lane/wave32 bug":
+        # re-run the same bs=128 backward under several input seeds.
+        #   kink   -> the disagreeing row INDICES move freely with the seed, and
+        #             their count tracks how many rows sit near the kink;
+        #   lane bug -> the disagreeing rows stay pinned to the same residues
+        #             mod 32 (the wave width) regardless of the input.
+        print("\n  -- ReLU disagreement: seed sweep (kink vs lane-bug discriminator) --")
+        for seed in (11, 12, 13, 14):
+            torch.manual_seed(seed)
+            x0 = torch.rand(128, IN_DIM, device=device) * 2 - 1
+            torch.manual_seed(seed + 1000)
+            dout = torch.rand(128, OUT_DIM, device=device) * 2 - 1
+
+            xt = x0.clone().requires_grad_(True)
+            o = mlp_tcnn(xt)
+            mlp_tcnn.zero_grad(set_to_none=True)
+            o.backward(dout.to(o.dtype))
+            g_t = xt.grad.clone()
+
+            xa = x0.clone().requires_grad_(True)
+            mlp_torch.zero_grad(set_to_none=True)
+            ref_fp32(xa).backward(dout)
+            g_a = xa.grad.clone()
+
+            xb = x0.clone().requires_grad_(True)
+            mlp_torch.zero_grad(set_to_none=True)
+            ref_emul(xb).backward(dout)
+            g_b = xb.grad.clone()
+            mlp_torch.zero_grad(set_to_none=True)
+
+            with torch.no_grad():
+                bar = 8 * max((g_b - g_a).abs().max().item(), 1e-7)
+                bad = ((g_t - g_a).abs().max(dim=-1).values > bar).nonzero().flatten()
+                mn = min_abs_preactivation(x0)
+                near_kink = int((mn < 3e-4).sum())
+                res32 = sorted({int(i) % 32 for i in bad})
+                print(
+                    f"    seed {seed}: {bad.numel()} disagreeing rows {bad[:8].tolist()}  "
+                    f"residues mod 32 {res32}  |  rows with min|pre-act| < 3e-4: {near_kink}"
+                )
 
 
 run_mlp_test(nn.ReLU(), "a", "MLP")
