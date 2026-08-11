@@ -77,15 +77,18 @@ it was verified independently rather than assumed:
     0.5) holds to 7.32e-04, i.e. 1 fp16 ULP.
   - `SHEncoding`: forward output is **bit-identical** to the fp16 rounding of the exact fp32
     result (`|tcnn-b| = 0` at most batch sizes); backward relative error 2.2e-04 to 2.5e-04.
-  - `FullyFusedMLP`: forward relative error <=2.2e-03 across all ten batch sizes, at a stable
-    4-5x the derived fp16 error floor. Backward weight-gradient relative error 1.2e-03 on
-    kink-safe rows. One apparent all-rows backward mismatch at bs=128 with `activation=ReLU`
-    (3/128 rows, up to 11.9% relative error) was root-caused, not waved away: a seed sweep
-    showed the disagreeing row *indices* move freely with the input seed (including one seed
-    with zero disagreement), which a wave32 lane bug cannot produce since lane mapping doesn't
-    depend on input values; a smooth-activation (`Sigmoid`) control passes the identical test
-    with `|tcnn-a|` **below** the fp16 floor. Conclusion: an inherent fp16 ReLU-kink
-    sensitivity (identical on NVIDIA stock tiny-cuda-nn), not a gfx1151/wave32 defect.
+  - `FullyFusedMLP`: for the ReLU-activation MLP, forward relative error <=2.15e-03 across all
+    ten batch sizes, at roughly 2.5-4.6x the derived fp16 error floor. Backward weight-gradient
+    relative error 1.2e-03 on kink-safe rows. One apparent all-rows backward mismatch at bs=128
+    with `activation=ReLU` (3/128 rows, up to 11.9% relative error) was root-caused, not waved
+    away: a seed sweep showed the disagreeing row *indices* move freely with the input seed
+    (including one seed with zero disagreement), which a wave32 lane bug cannot produce since
+    lane mapping doesn't depend on input values. A smooth-activation (`Sigmoid`) control run
+    against the same all-rows check is the more persuasive evidence: it sits at or near the
+    fp16 floor (0.85x-3.5x the floor across the four backward checks, vs. the ReLU all-rows
+    failure's 325x the floor: `|tcnn-a|` 2.058e-02 against a 6.323e-05 floor). Conclusion: an
+    inherent fp16 ReLU-kink sensitivity (identical on NVIDIA stock tiny-cuda-nn), not a
+    gfx1151/wave32 defect.
   - Bitwise-deterministic forward across 3 repeated runs for all three components (backward
     determinism not separately re-verified, expected non-deterministic for `HashGrid` by
     construction since its backward scatter-adds into the parameter table via atomics).
@@ -105,8 +108,9 @@ it was verified independently rather than assumed:
   `FullyFusedMLP` (width 64), and `NetworkWithInputEncoding` with an `Identity` encoding were
   independently numerically verified — `CutlassMLP`, other `n_neurons` widths, other encodings
   (`Frequency`, `TriangleWave`, `OneBlob`, `Composite`), and second-order gradients were not.
-  Full evidence, methodology, and honest limitations: `tests/rocm/tcnn_wave32_correctness.py`
-  and its companion task reports.
+  Full evidence and methodology: `tests/rocm/tcnn_wave32_correctness.py` — the numbers cited
+  above are transcribed directly from a run of that script (`tests/rocm/logs/` is gitignored
+  and not part of the durable record; re-run the script against real hardware to reproduce).
 
 `tiny-rocm-nn` now installs as a hard, non-fallback build step in
 `docker/Dockerfile.rocm` (same pattern as gsplat/nerfacc), pointing at the

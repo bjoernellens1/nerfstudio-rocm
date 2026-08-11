@@ -185,17 +185,29 @@ HALF = None  # filled in on first use from the native param precision
 
 def run_mlp_test(activation: nn.Module, tag: str, component: str) -> None:
     global HALF
-    banner(f"1{tag}. MLP (tcnn FullyFusedMLP, activation={activation.__class__.__name__}) "
-           f"vs nerfstudio torch MLP -- exact parameter copy")
+    banner(
+        f"1{tag}. MLP (tcnn FullyFusedMLP, activation={activation.__class__.__name__}) "
+        f"vs nerfstudio torch MLP -- exact parameter copy"
+    )
 
     torch.manual_seed(0)
     mlp_tcnn = MLP(
-        in_dim=IN_DIM, num_layers=NUM_LAYERS, layer_width=LAYER_WIDTH, out_dim=OUT_DIM,
-        activation=activation, out_activation=None, implementation="tcnn",
+        in_dim=IN_DIM,
+        num_layers=NUM_LAYERS,
+        layer_width=LAYER_WIDTH,
+        out_dim=OUT_DIM,
+        activation=activation,
+        out_activation=None,
+        implementation="tcnn",
     ).to(device)
     mlp_torch = MLP(
-        in_dim=IN_DIM, num_layers=NUM_LAYERS, layer_width=LAYER_WIDTH, out_dim=OUT_DIM,
-        activation=activation, out_activation=None, implementation="torch",
+        in_dim=IN_DIM,
+        num_layers=NUM_LAYERS,
+        layer_width=LAYER_WIDTH,
+        out_dim=OUT_DIM,
+        activation=activation,
+        out_activation=None,
+        implementation="torch",
     ).to(device)
 
     assert mlp_tcnn.tcnn_encoding is not None, "tcnn path was not taken"
@@ -212,8 +224,9 @@ def run_mlp_test(activation: nn.Module, tag: str, component: str) -> None:
     n_params = mlp_tcnn.tcnn_encoding.params.numel()
     padded_in = (n_params - (NUM_LAYERS - 2) * LAYER_WIDTH**2 - PADDED_OUT * LAYER_WIDTH) // LAYER_WIDTH
     assert padded_in >= IN_DIM, f"derived padded input width {padded_in} < in_dim {IN_DIM}"
-    print(f"  n params (tcnn)  : {n_params};  m_input_width={padded_in} (from {IN_DIM}), "
-          f"padded_output_width={PADDED_OUT}")
+    print(
+        f"  n params (tcnn)  : {n_params};  m_input_width={padded_in} (from {IN_DIM}), padded_output_width={PADDED_OUT}"
+    )
 
     with torch.no_grad():
         for layer in mlp_torch.layers:
@@ -429,7 +442,6 @@ def sh_ref(u: torch.Tensor) -> torch.Tensor:
     z = u[..., 2] * 2.0 - 1.0
     xy, xz, yz = x * y, x * z, y * z
     x2, y2, z2 = x * x, y * y, z * z
-    z4 = z2 * z2
     c = [
         torch.full_like(x, 0.28209479177387814),
         -0.48860251190291987 * y,
@@ -470,9 +482,7 @@ with torch.no_grad():
     # nerfstudio's components_from_spherical_harmonics omits it and orders the
     # m<0 / m>0 pairs the other way round.  Map nerfstudio -> tcnn ordering:
     perm = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-    sign = torch.tensor(
-        [1, -1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, 1], device=device, dtype=torch.float32
-    )
+    sign = torch.tensor([1, -1, 1, -1, 1, -1, 1, -1, 1, 1, 1, -1, 1, -1, 1, 1], device=device, dtype=torch.float32)
     # nerfstudio index -> tcnn index for l=3 differs in the (9,15) and (11,13) pairing
     ns_mapped = ns[:, perm] * sign
     ns_mapped[:, 9] = -ns[:, 9]
@@ -494,7 +504,7 @@ for bs in (128, 4096):
     torch.manual_seed(500 + bs)
     u0 = torch.rand(bs, 3, device=device)
     torch.manual_seed(600 + bs)
-    dout = (torch.rand(bs, SH_LEVELS**2, device=device) * 2 - 1)
+    dout = torch.rand(bs, SH_LEVELS**2, device=device) * 2 - 1
 
     ut = u0.clone().requires_grad_(True)
     o = sh_tcnn(ut)
@@ -587,8 +597,7 @@ print("  offset table     : MATCHES tcnn's own n_params -- transcription validat
 for lvl in range(NUM_LEVELS):
     dense = RESOLUTIONS[lvl] ** 3 <= SIZES[lvl]
     print(
-        f"    level {lvl:>2}: resolution={RESOLUTIONS[lvl]:>4}  size={SIZES[lvl]:>7}  "
-        f"{'dense' if dense else 'hashed'}"
+        f"    level {lvl:>2}: resolution={RESOLUTIONS[lvl]:>4}  size={SIZES[lvl]:>7}  {'dense' if dense else 'hashed'}"
     )
 
 M32 = (1 << 32) - 1
@@ -659,7 +668,7 @@ def hashgrid_ref(x: torch.Tensor, params: torch.Tensor, emulate_half: bool = Fal
 torch.manual_seed(21)
 with torch.no_grad():
     hg_tcnn.tcnn_encoding.params.copy_(
-        ((torch.rand_like(hg_tcnn.tcnn_encoding.params.float()) * 2 - 1)).to(GRID_HALF).float()
+        (torch.rand_like(hg_tcnn.tcnn_encoding.params.float()) * 2 - 1).to(GRID_HALF).float()
     )
 params_f32 = hg_tcnn.tcnn_encoding.params.detach().to(GRID_HALF).float()
 print(f"  params reset to U(-1,1), rounded to {GRID_HALF}")
@@ -718,7 +727,7 @@ for bs in (128, 4096):
     torch.manual_seed(800 + bs)
     u0 = torch.rand(bs, 3, device=device)
     torch.manual_seed(900 + bs)
-    dout = (torch.rand(bs, NUM_LEVELS * FEATURES_PER_LEVEL, device=device) * 2 - 1)
+    dout = torch.rand(bs, NUM_LEVELS * FEATURES_PER_LEVEL, device=device) * 2 - 1
 
     ut = u0.clone().requires_grad_(True)
     o = hg_tcnn(ut)
@@ -753,8 +762,11 @@ for comp in ("HashEncoding", "SHEncoding", "MLP", "MLP-Sigmoid", "MLP-ReLU-allro
     ok = not failed
     if comp != "MLP-ReLU-allrows":  # informational: contaminated by ReLU-kink flips
         overall &= ok
+    row_label = comp
+    if comp == "MLP-ReLU-allrows":
+        row_label += " (informational — ReLU-kink contaminated, excluded from OVERALL, see ROCM.md)"
     print(
-        f"  {comp:<14}: {'CORRECT' if ok else 'NOT CORRECT'}  "
+        f"  {row_label:<14}: {'CORRECT' if ok else 'NOT CORRECT'}  "
         f"({len(checks) - len(failed)}/{len(checks)} checks passed, worst |tcnn-a| = {worst:.3e})"
     )
     for label, passed, err, floor in failed:
