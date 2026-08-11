@@ -22,9 +22,9 @@ status = "verified on gfx1151: own pytest suite 23 passed / 0 failed (21/23 real
 
 [tiny_rocm_nn]
 repo = "https://github.com/bjoernellens1/tiny-rocm-nn"
-branch = "main"
-commit = "6f329355ee1130513aa4235302945b6932a40ebb"
-status = "HashGrid/Frequency/SphericalHarmonics/FullyFusedMLP ported and verified on MI300X (gfx942/CDNA); CutlassMLP not implemented; RDNA (gfx11xx/gfx12xx, incl. this machine's gfx1151) untested by upstream"
+branch = "rocm-gfx1151-validation"
+commit = "5bd12ae6f7efe61a087b28b182be5cf76182b781"
+status = "verified on gfx1151: builds cleanly under `docker build` (hipBLAS API-version fix ported from kodai731/rocm-gfx1100; hard dependency in docker/Dockerfile.rocm, requires --recursive clone for the vendored dependencies/fmt submodule); wave32 numerical correctness verified via an independent PyTorch reference (tests/rocm/tcnn_wave32_correctness.py) — HashGrid, SphericalHarmonics, and FullyFusedMLP all match to within ~1-2 fp16 ULP forward and backward, no lane/shuffle bug found (the one apparent MLP backward mismatch at bs=128/ReLU was root-caused to a legitimate fp16 ReLU-kink disagreement, not a wave32 defect, via a seed sweep and a Sigmoid control); CutlassMLP still not implemented, widths outside {64,128} fall back to implementation=torch; Instant-NGP trained 5000 iterations on bonsai (mip-nerf360) with tcnn genuinely active (confirmed via live pipeline module introspection, not just log-absence-of-fallback), no NaN/Inf, train loss 0.11959->0.001537, train PSNR 9.339->28.134dB, eval PSNR 22.22->26.55dB — beating the torch-fallback Instant-NGP baseline (train loss 0.0044, train PSNR 23.4dB) on the same scene"
 
 [colmap]
 repo = "https://github.com/bjoernellens1/colmap"
