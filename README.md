@@ -1,5 +1,5 @@
 > ## This is `nerfstudio-rocm`
-> A fork of [nerfstudio-project/nerfstudio](https://github.com/nerfstudio-project/nerfstudio) targeting AMD GPUs via ROCm/HIP, kept intentionally close to upstream. GPU-specific work lives in separate forks of the accelerated dependencies — see **[ROCM.md](ROCM.md)** for the architecture, current port status ([gsplat](https://github.com/bjoernellens1/gsplat): verified, [nerfacc-rocm](https://github.com/bjoernellens1/nerfacc-rocm): unported, [tiny-rocm-nn](https://github.com/bjoernellens1/tiny-rocm-nn): partially ported), and how to run the ROCm Docker image.
+> A fork of [nerfstudio-project/nerfstudio](https://github.com/nerfstudio-project/nerfstudio) targeting AMD GPUs via ROCm/HIP, kept intentionally close to upstream. GPU-specific work lives in separate forks of the accelerated dependencies — see **[ROCM.md](ROCM.md)** for the architecture, current port status ([gsplat](https://github.com/bjoernellens1/gsplat): verified, [nerfacc-rocm](https://github.com/bjoernellens1/nerfacc-rocm): verified, [tiny-rocm-nn](https://github.com/bjoernellens1/tiny-rocm-nn): partially ported), and how to run the ROCm Docker image.
 
 <p align="center">
     <!-- community badges -->
